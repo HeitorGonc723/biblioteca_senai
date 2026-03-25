@@ -1,13 +1,10 @@
-import fs from 'fs';
-import path from 'path';
+import { pegarDados } from '@/utils/banco';
 
-// Caminho absoluto para o arquivo de dados
-const filePath = path.join(process.cwd(), 'src', 'pages', 'api', 'bd.json');
+export default function controlador(req: any, res: any) {
+  if (req.method !== 'GET') {
+    return res.status(405).json({ mensagem: 'Não pode.' });
+  }
 
-export default function handler(req, res) {
-    // --- OPERAÇÃO DE LEITURA ---
-    const jsonData = fs.readFileSync(filePath, 'utf-8');
-    const data = JSON.parse(jsonData);
-
-    res.status(200).json({ usuarios: data.usuarios });
+  const banco = pegarDados();
+  return res.status(200).json({ usuarios: banco.usuarios });
 }

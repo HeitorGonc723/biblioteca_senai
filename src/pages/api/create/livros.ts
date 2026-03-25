@@ -1,51 +1,52 @@
-import fs from 'fs';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { criarId, pegarDados, salvarDados } from "@/utils/banco";
 
-// Caminho absoluto para o arquivo de dados
-const filePath = path.join(process.cwd(), 'src', 'pages', 'api', 'bd.json');
+export default function controlador(requisicao: any, resposta: any) {
+  if (requisicao.method !== "POST") {
+    return resposta.status(405).json({ mensagem: "Método errado." });
+  }
 
-export default function handler(req, res) {
-    type Livro = {
-        titulo: string;
-        autor: string;
-        genero: string;
-        quantidade: number;
-        qtdEmprestados: number;
-        [key: string]: unknown;
-    };
+  const titulo = requisicao.body.titulo;
+  const genero = requisicao.body.genero;
+  const autor = requisicao.body.autor;
+  const quantidadeDigitada = requisicao.body.quantidade;
 
-    const jsonData = fs.readFileSync(filePath, 'utf-8');
-    const parsed = JSON.parse(jsonData) as { livros?: Livro[] };
-    const livros = parsed.livros ?? [];
+  if (!titulo || !genero || !autor || !quantidadeDigitada) {
+    return resposta.status(400).json({ mensagem: "Preencha tudo do livro!" });
+  }
 
-    const { titulo, autor, genero, quantidade } = req.body;
+  const quantidadeNumerica = Number(quantidadeDigitada);
 
-    if (!titulo || !autor || !genero || !quantidade) {
-        return res.status(400).json({ mensagem: 'Todos os campos (titulo, autor, genero, quantidade) são obrigatórios.' });
+  if (quantidadeNumerica <= 0) {
+    return resposta.status(400).json({ mensagem: "A quantidade tá errada." });
+  }
+
+  const bancoDeDados = pegarDados();
+  const listaDeLivros = bancoDeDados.livros;
+
+  for (let i = 0; i < listaDeLivros.length; i++) {
+    const livroAtual = listaDeLivros[i];
+
+    if (livroAtual.titulo === titulo && livroAtual.autor === autor) {
+      return resposta.status(400).json({ 
+        mensagem: "Já temos esse livro com esse autor." 
+      });
     }
+  }
 
-    const jaExiste = livros.some(
-        (livro: Livro) =>
-            livro.titulo.trim().toLowerCase() === titulo.trim().toLowerCase() &&
-            livro.autor.trim().toLowerCase() === autor.trim().toLowerCase()
-    );
+  const novoLivro = {
+    id: criarId(),
+    titulo: titulo,
+    genero: genero,
+    autor: autor,
+    quantidade: quantidadeNumerica,
+    qtdEmprestados: 0,
+  };
 
-    if (jaExiste) {
-        return res.status(400).json({ mensagem: 'Livro já cadastrado!' });
-    }
+  listaDeLivros.push(novoLivro);
+  salvarDados(bancoDeDados);
 
-    const novoLivro = {
-        id: uuidv4(),
-        titulo: titulo.trim(),
-        autor: autor.trim(),
-        genero: genero.trim(),
-        quantidade: Number(quantidade),
-        qtdEmprestados: 0
-    };
-
-    livros.push(novoLivro);
-    fs.writeFileSync(filePath, JSON.stringify({ ...parsed, livros }, null, 2));
-
-    res.status(200).json({ mensagem: 'Livro cadastrado com sucesso!', livro: novoLivro });
+  return resposta.status(201).json({ 
+    mensagem: "Livro salvo!", 
+    livro: novoLivro 
+  });
 }
